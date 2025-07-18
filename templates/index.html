@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Transcribe Audio</title>
+</head>
+<body>
+  <h1>🎤 Audio Transcription</h1>
+
+  <h3>Option 1: Record</h3>
+  <button id="recordBtn">Start Recording</button>
+  <button id="stopBtn" disabled>Stop & Transcribe</button>
+  <p id="status"></p>
+
+  <h3>Option 2: Upload File</h3>
+  <input type="file" id="uploadInput" accept="audio/*" />
+  <button onclick="uploadFile()">Transcribe</button>
+
+  <h3>📝 Output</h3>
+  <pre id="output"></pre>
+
+  <script>
+    let mediaRecorder, audioChunks = [];
+
+    const recordBtn = document.getElementById("recordBtn");
+    const stopBtn = document.getElementById("stopBtn");
+    const output = document.getElementById("output");
+    const status = document.getElementById("status");
+
+    recordBtn.onclick = async () => {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      mediaRecorder = new MediaRecorder(stream);
+      audioChunks = [];
+
+      mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
+      mediaRecorder.onstop = () => {
+        const blob = new Blob(audioChunks, { type: 'audio/webm' });
+        uploadBlob(blob);
+      };
+
+      mediaRecorder.start();
+      recordBtn.disabled = true;
+      stopBtn.disabled = false;
+      status.innerText = "🎙️ Recording...";
+    };
+
+    stopBtn.onclick = () => {
+      mediaRecorder.stop();
+      recordBtn.disabled = false;
+      stopBtn.disabled = true;
+      status.innerText = "⏹️ Stopped.";
+    };
+
+    function uploadFile() {
+      const fileInput = document.getElementById("uploadInput");
+      const file = fileInput.files[0];
+      if (!file) return alert("Please select a file");
+      uploadBlob(file);
+    }
+
+    function uploadBlob(blob) {
+      const formData = new FormData();
+      formData.append("audio", blob);
+
+      output.innerText = "⏳ Transcribing...";
+      fetch("/transcribe", {
+        method: "POST",
+        body: formData,
+      })
+      .then(res => res.json())
+      .then(data => {
+        output.innerText = data.transcription || `❌ ${data.error}`;
+      });
+    }
+  </script>
+</body>
+</html>
